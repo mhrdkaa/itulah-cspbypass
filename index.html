@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Dynamic CSP Leak PoC</title>
+    <title>POC - UTAA</title>
     <script>
         
         const params = new URLSearchParams(window.location.search);
@@ -42,7 +42,7 @@
 
             const resultDiv = document.getElementById('log');
             resultDiv.innerHTML = `
-                <h3>🚨 LEAKED DATA:</h3>
+                <h3>LEAKED DATA:</h3>
                 <pre style="background: #eee; padding: 15px; border: 2px solid red; overflow-x: auto;">
 ${JSON.stringify(leakData, null, 2)}
                 </pre>
