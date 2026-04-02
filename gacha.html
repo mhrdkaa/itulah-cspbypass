@@ -6,7 +6,7 @@
         default-src 'self' 'unsafe-inline'; 
         object-src https://fb.com;
     ">
-    <title>Object-src CSP Leak (XFO Bypass)</title>
+    <title>Object-src CSP Leak</title>
     <style>
         body { background-color: #111; color: #0f0; font-family: monospace; padding: 20px; }
         h2 { color: #ff3333; margin-bottom: 5px; }
@@ -34,8 +34,6 @@
     <script>
         const targetUrl = 'https://fb.com/4';
         const logs = document.getElementById('logs');
-
-        // Listener buat nangkep laporan satpam (CSP)
         document.addEventListener('securitypolicyviolation', e => {
             const isLeaking = e.blockedURI.includes('facebook.com');
             const alertText = isLeaking ? '<span class="alert">[ LEAK DETECTED ]</span>' : '[ SAFE ]';
